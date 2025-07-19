@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import { Upload, FileText, Settings, TrendingUp, DollarSign, AlertTriangle, CheckCircle, XCircle, Download, MapPin, Building2, Calculator, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
+import 'app/globals.css';
 
 interface DealHistory {
   id: number;
