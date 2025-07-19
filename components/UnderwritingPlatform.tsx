@@ -1,6 +1,51 @@
 'use client'
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, Settings, TrendingUp, DollarSign, AlertTriangle, CheckCircle, XCircle, Download, MapPin, Building2, Calculator, BarChart3 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+
+interface DealHistory {
+  id: number;
+  address: string;
+  date: string;
+  status: 'pass' | 'fail';
+  cocReturn: number;
+}
+
+interface RiskFactor {
+  type: 'low' | 'medium' | 'high';
+  message: string;
+}
+
+interface AnalysisResults {
+  propertyInfo: {
+    address: string;
+    units: number;
+    yearBuilt: number;
+    squareFeet: number;
+    lotSize: string;
+  };
+  financials: {
+    grossRent: number;
+    netOperatingIncome: number;
+    purchasePrice: number;
+    capRate: number;
+    cocReturn: number;
+    dscr: number;
+    cashRequired: number;
+  };
+  marketData: {
+    avgRentPsf: number;
+    marketCapRate: number;
+    crimeScore: string;
+    schoolRating: number;
+    walkScore: number;
+    medianIncome: number;
+  };
+  riskFactors: RiskFactor[];
+  recommendation: 'pass' | 'fail';
+  confidenceScore: number;
+}
 
 const UnderwritingPlatform = () => {
   const [activeTab, setActiveTab] = useState('underwrite');
@@ -13,8 +58,8 @@ const UnderwritingPlatform = () => {
     targetHoldPeriod: 5
   });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [results, setResults] = useState<any>(null);
-  const [dealHistory] = useState([
+  const [results, setResults] = useState<AnalysisResults | null>(null);
+  const [dealHistory] = useState<DealHistory[]>([
     { id: 1, address: '1234 Main St, Austin, TX', date: '2025-07-15', status: 'pass', cocReturn: 12.3 },
     { id: 2, address: '5678 Oak Ave, Dallas, TX', date: '2025-07-14', status: 'fail', cocReturn: 5.2 },
     { id: 3, address: '9101 Pine Rd, Houston, TX', date: '2025-07-13', status: 'pass', cocReturn: 9.8 }
@@ -37,7 +82,7 @@ const UnderwritingPlatform = () => {
     await new Promise(resolve => setTimeout(resolve, 3000));
     
     // Mock analysis results
-    const mockResults = {
+    const mockResults: AnalysisResults = {
       propertyInfo: {
         address: property.address || '123 Sample Street, Austin, TX 78701',
         units: 48,
@@ -76,16 +121,250 @@ const UnderwritingPlatform = () => {
   };
 
   const exportToExcel = () => {
-    // In a real implementation, this would generate an actual Excel file
-    const data = `Property Analysis Export - ${results.propertyInfo.address}\n\nKey Metrics:\nCap Rate: ${results.financials.capRate}%\nCash-on-Cash Return: ${results.financials.cocReturn}%\nDSCR: ${results.financials.dscr}\n\nRecommendation: ${results.recommendation.toUpperCase()}`;
+    if (!results) return;
+
+    // Create a comprehensive Excel workbook
+    const workbook = XLSX.utils.book_new();
+
+    // Summary Sheet
+    const summaryData = [
+      ['CRE Underwriting Analysis Report'],
+      ['Generated on:', new Date().toLocaleDateString()],
+      [''],
+      ['PROPERTY INFORMATION'],
+      ['Address:', results.propertyInfo.address],
+      ['Units:', results.propertyInfo.units],
+      ['Year Built:', results.propertyInfo.yearBuilt],
+      ['Square Feet:', results.propertyInfo.squareFeet.toLocaleString()],
+      ['Lot Size:', results.propertyInfo.lotSize],
+      [''],
+      ['KEY FINANCIAL METRICS'],
+      ['Purchase Price:', `$${results.financials.purchasePrice.toLocaleString()}`],
+      ['Gross Rent:', `$${results.financials.grossRent.toLocaleString()}`],
+      ['Net Operating Income:', `$${results.financials.netOperatingIncome.toLocaleString()}`],
+      ['Cap Rate:', `${results.financials.capRate}%`],
+      ['Cash-on-Cash Return:', `${results.financials.cocReturn}%`],
+      ['DSCR:', results.financials.dscr],
+      ['Cash Required:', `$${results.financials.cashRequired.toLocaleString()}`],
+      [''],
+      ['MARKET DATA'],
+      ['Average Rent PSF:', `$${results.marketData.avgRentPsf}`],
+      ['Market Cap Rate:', `${results.marketData.marketCapRate}%`],
+      ['Crime Score:', results.marketData.crimeScore],
+      ['School Rating:', `${results.marketData.schoolRating}/10`],
+      ['Walk Score:', results.marketData.walkScore],
+      ['Median Income:', `$${results.marketData.medianIncome.toLocaleString()}`],
+      [''],
+      ['RECOMMENDATION'],
+      ['Status:', results.recommendation.toUpperCase()],
+      ['Confidence Score:', `${results.confidenceScore}%`]
+    ];
+
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+    summarySheet['!cols'] = [{ width: 25 }, { width: 20 }];
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+
+    // Detailed Financial Model Sheet
+    const modelData = [
+      ['CRE Financial Model', '', '', '', ''],
+      ['Property:', results.propertyInfo.address, '', '', ''],
+      ['Analysis Date:', new Date().toLocaleDateString(), '', '', ''],
+      [''],
+      ['ASSUMPTIONS', '', '', '', ''],
+      ['Purchase Price', results.financials.purchasePrice, '', '', ''],
+      ['Down Payment %', '30%', '', '', ''],
+      ['Loan Amount', results.financials.purchasePrice * 0.7, '', '', ''],
+      ['Interest Rate', '6.5%', '', '', ''],
+      ['Loan Term (Years)', '30', '', '', ''],
+      [''],
+      ['INCOME ANALYSIS', '', '', '', ''],
+      ['Gross Rental Income', results.financials.grossRent, '', '', ''],
+      ['Vacancy Rate %', '5%', '', '', ''],
+      ['Effective Gross Income', results.financials.grossRent * 0.95, '', '', ''],
+      [''],
+      ['EXPENSE ANALYSIS', '', '', '', ''],
+      ['Property Management', results.financials.grossRent * 0.08, '', '', ''],
+      ['Maintenance & Repairs', results.financials.grossRent * 0.05, '', '', ''],
+      ['Property Taxes', results.financials.grossRent * 0.12, '', '', ''],
+      ['Insurance', results.financials.grossRent * 0.03, '', '', ''],
+      ['Utilities', results.financials.grossRent * 0.02, '', '', ''],
+      ['Other Expenses', results.financials.grossRent * 0.03, '', '', ''],
+      ['Total Operating Expenses', results.financials.grossRent * 0.33, '', '', ''],
+      [''],
+      ['NET OPERATING INCOME', results.financials.netOperatingIncome, '', '', ''],
+      [''],
+      ['RETURN METRICS', '', '', '', ''],
+      ['Cap Rate', `${results.financials.capRate}%`, '', '', ''],
+      ['Cash-on-Cash Return', `${results.financials.cocReturn}%`, '', '', ''],
+      ['DSCR', results.financials.dscr, '', '', '']
+    ];
+
+    const modelSheet = XLSX.utils.aoa_to_sheet(modelData);
+    modelSheet['!cols'] = [{ width: 25 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 15 }];
+    XLSX.utils.book_append_sheet(workbook, modelSheet, 'Financial Model');
+
+    // Risk Analysis Sheet
+    const riskData = [
+      ['Risk Assessment Report'],
+      [''],
+      ['Risk Factor', 'Risk Level', 'Description'],
+      ...results.riskFactors.map((risk) => [
+        risk.type.charAt(0).toUpperCase() + risk.type.slice(1),
+        risk.type.toUpperCase(),
+        risk.message
+      ])
+    ];
+
+    const riskSheet = XLSX.utils.aoa_to_sheet(riskData);
+    riskSheet['!cols'] = [{ width: 15 }, { width: 15 }, { width: 50 }];
+    XLSX.utils.book_append_sheet(workbook, riskSheet, 'Risk Analysis');
+
+    // Generate filename with timestamp
+    const fileName = `CRE_Analysis_${results.propertyInfo.address.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
     
-    const blob = new Blob([data], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'underwriting-analysis.txt';
-    a.click();
-    URL.revokeObjectURL(url);
+    // Write and download the file
+    XLSX.writeFile(workbook, fileName);
+  };
+
+  const exportToPDF = () => {
+    if (!results) return;
+
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    let yPosition = 20;
+    const lineHeight = 8;
+    const margin = 20;
+
+    // Helper function to add text with word wrapping
+    const addText = (text: string, x: number, y: number, maxWidth?: number) => {
+      if (maxWidth) {
+        const lines = pdf.splitTextToSize(text, maxWidth);
+        pdf.text(lines, x, y);
+        return y + (lines.length * lineHeight);
+      } else {
+        pdf.text(text, x, y);
+        return y + lineHeight;
+      }
+    };
+
+    // Header
+    pdf.setFontSize(20);
+    pdf.setFont('helvetica', 'bold');
+    yPosition = addText('CRE Underwriting Analysis Report', margin, yPosition);
+    
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    yPosition = addText(`Generated on: ${new Date().toLocaleDateString()}`, margin, yPosition + 5);
+    yPosition += 10;
+
+    // Recommendation Banner
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    if (results.recommendation === 'pass') {
+      pdf.setTextColor(0, 128, 0);
+      yPosition = addText('✓ DEAL APPROVED', margin, yPosition);
+    } else {
+      pdf.setTextColor(255, 0, 0);
+      yPosition = addText('✗ DEAL REJECTED', margin, yPosition);
+    }
+    
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont('helvetica', 'normal');
+    yPosition = addText(`Confidence Score: ${results.confidenceScore}%`, margin, yPosition + 5);
+    yPosition += 15;
+
+    // Property Information
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    yPosition = addText('Property Information', margin, yPosition);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    yPosition += 5;
+    
+    yPosition = addText(`Address: ${results.propertyInfo.address}`, margin, yPosition);
+    yPosition = addText(`Units: ${results.propertyInfo.units}`, margin, yPosition);
+    yPosition = addText(`Year Built: ${results.propertyInfo.yearBuilt}`, margin, yPosition);
+    yPosition = addText(`Square Feet: ${results.propertyInfo.squareFeet.toLocaleString()}`, margin, yPosition);
+    yPosition = addText(`Lot Size: ${results.propertyInfo.lotSize}`, margin, yPosition);
+    yPosition += 10;
+
+    // Key Financial Metrics
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    yPosition = addText('Key Financial Metrics', margin, yPosition);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    yPosition += 5;
+
+    const leftCol = margin;
+    const rightCol = pageWidth / 2 + 10;
+
+    // Left column
+    let leftY = yPosition;
+    leftY = addText(`Purchase Price: $${results.financials.purchasePrice.toLocaleString()}`, leftCol, leftY);
+    leftY = addText(`Gross Rent: $${results.financials.grossRent.toLocaleString()}`, leftCol, leftY);
+    leftY = addText(`NOI: $${results.financials.netOperatingIncome.toLocaleString()}`, leftCol, leftY);
+    leftY = addText(`Cash Required: $${results.financials.cashRequired.toLocaleString()}`, leftCol, leftY);
+
+    // Right column
+    let rightY = yPosition;
+    rightY = addText(`Cap Rate: ${results.financials.capRate}%`, rightCol, rightY);
+    rightY = addText(`Cash-on-Cash Return: ${results.financials.cocReturn}%`, rightCol, rightY);
+    rightY = addText(`DSCR: ${results.financials.dscr}`, rightCol, rightY);
+
+    yPosition = Math.max(leftY, rightY) + 10;
+
+    // Market Data
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    yPosition = addText('Market Data', margin, yPosition);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    yPosition += 5;
+
+    leftY = yPosition;
+    leftY = addText(`Average Rent PSF: $${results.marketData.avgRentPsf}`, leftCol, leftY);
+    leftY = addText(`Market Cap Rate: ${results.marketData.marketCapRate}%`, leftCol, leftY);
+    leftY = addText(`Crime Score: ${results.marketData.crimeScore}`, leftCol, leftY);
+
+    rightY = yPosition;
+    rightY = addText(`School Rating: ${results.marketData.schoolRating}/10`, rightCol, rightY);
+    rightY = addText(`Walk Score: ${results.marketData.walkScore}`, rightCol, rightY);
+    rightY = addText(`Median Income: $${results.marketData.medianIncome.toLocaleString()}`, rightCol, rightY);
+
+    yPosition = Math.max(leftY, rightY) + 15;
+
+    // Risk Assessment
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    yPosition = addText('Risk Assessment', margin, yPosition);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    yPosition += 5;
+
+    results.riskFactors.forEach((risk) => {
+      const riskColor = risk.type === 'low' ? [0, 128, 0] : risk.type === 'medium' ? [255, 165, 0] : [255, 0, 0];
+      pdf.setTextColor(riskColor[0], riskColor[1], riskColor[2]);
+      pdf.setFont('helvetica', 'bold');
+      yPosition = addText(`${risk.type.toUpperCase()} RISK:`, margin, yPosition);
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont('helvetica', 'normal');
+      yPosition = addText(risk.message, margin + 25, yPosition - lineHeight, pageWidth - margin - 45);
+      yPosition += 5;
+    });
+
+    // Footer
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'italic');
+    pdf.text('Generated by CRE Underwriter AI', margin, pageHeight - 15);
+    pdf.text(`Page 1 of 1`, pageWidth - 50, pageHeight - 15);
+
+    // Generate filename
+    const fileName = `CRE_Analysis_${results.propertyInfo.address.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    
+    // Save the PDF
+    pdf.save(fileName);
   };
 
   const TabButton = ({ id, label, icon: Icon }: { id: string; label: string; icon: any }) => (
@@ -250,35 +529,38 @@ const UnderwritingPlatform = () => {
                     ? 'bg-green-50 border-2 border-green-200' 
                     : 'bg-red-50 border-2 border-red-200'
                 }`}>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div className="flex items-center space-x-3">
                       {results.recommendation === 'pass' ? (
-                        <CheckCircle className="w-8 h-8 text-green-600" />
+                        <CheckCircle className="w-8 h-8 text-green-600 flex-shrink-0" />
                       ) : (
-                        <XCircle className="w-8 h-8 text-red-600" />
+                        <XCircle className="w-8 h-8 text-red-600 flex-shrink-0" />
                       )}
                       <div>
-                        <h3 className={`text-2xl font-bold ${
+                        <h3 className={`text-xl lg:text-2xl font-bold ${
                           results.recommendation === 'pass' ? 'text-green-800' : 'text-red-800'
                         }`}>
                           {results.recommendation === 'pass' ? 'DEAL APPROVED' : 'DEAL REJECTED'}
                         </h3>
-                        <p className={`${
+                        <p className={`text-sm lg:text-base ${
                           results.recommendation === 'pass' ? 'text-green-600' : 'text-red-600'
                         }`}>
                           Confidence Score: {results.confidenceScore}%
                         </p>
                       </div>
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <button
                         onClick={exportToExcel}
-                        className="bg-white px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 flex items-center space-x-2"
+                        className="bg-white px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 flex items-center justify-center space-x-2 text-sm"
                       >
                         <Download className="w-4 h-4" />
                         <span>Export Excel</span>
                       </button>
-                      <button className="bg-white px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 flex items-center space-x-2">
+                      <button 
+                        onClick={exportToPDF}
+                        className="bg-white px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 flex items-center justify-center space-x-2 text-sm"
+                      >
                         <FileText className="w-4 h-4" />
                         <span>Export PDF</span>
                       </button>
@@ -355,11 +637,11 @@ const UnderwritingPlatform = () => {
                     Risk Assessment
                   </h3>
                   <div className="space-y-3">
-                    {results.riskFactors.map((risk: any, index: number) => (
+                    {results.riskFactors.map((risk, index) => (
                       <div key={index} className={`flex items-start space-x-3 p-3 rounded-lg ${
                         risk.type === 'low' ? 'bg-green-50' : risk.type === 'medium' ? 'bg-yellow-50' : 'bg-red-50'
                       }`}>
-                        <div className={`w-2 h-2 rounded-full mt-2 ${
+                        <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
                           risk.type === 'low' ? 'bg-green-500' : risk.type === 'medium' ? 'bg-yellow-500' : 'bg-red-500'
                         }`}></div>
                         <span className={`text-sm ${
@@ -378,27 +660,27 @@ const UnderwritingPlatform = () => {
 
         {activeTab === 'history' && (
           <div className="bg-white rounded-xl shadow-sm p-6">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
               <h2 className="text-xl font-semibold">Deal History</h2>
               <div className="text-sm text-gray-600">
                 {dealHistory.filter(d => d.status === 'pass').length} of {dealHistory.length} deals approved
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left py-3 px-4 font-medium text-gray-600">Property</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-600">Date</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-600">Status</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-600">CoC Return</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">Property</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">Date</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">Status</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">CoC Return</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {dealHistory.map((deal) => (
                     <tr key={deal.id} className="hover:bg-gray-50">
-                      <td className="py-3 px-4">{deal.address}</td>
-                      <td className="py-3 px-4 text-gray-600">{deal.date}</td>
+                      <td className="py-3 px-4 text-sm">{deal.address}</td>
+                      <td className="py-3 px-4 text-gray-600 text-sm">{deal.date}</td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           deal.status === 'pass' 
@@ -408,7 +690,7 @@ const UnderwritingPlatform = () => {
                           {deal.status.toUpperCase()}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-medium">{deal.cocReturn}%</td>
+                      <td className="py-3 px-4 font-medium text-sm">{deal.cocReturn}%</td>
                     </tr>
                   ))}
                 </tbody>
@@ -427,8 +709,9 @@ const UnderwritingPlatform = () => {
                 </label>
                 <input
                   type="number"
+                  step="0.1"
                   value={criteria.minCocReturn}
-                  onChange={(e) => setCriteria(prev => ({ ...prev, minCocReturn: parseFloat(e.target.value) }))}
+                  onChange={(e) => setCriteria(prev => ({ ...prev, minCocReturn: parseFloat(e.target.value) || 0 }))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -438,8 +721,9 @@ const UnderwritingPlatform = () => {
                 </label>
                 <input
                   type="number"
+                  step="0.1"
                   value={criteria.minCapRate}
-                  onChange={(e) => setCriteria(prev => ({ ...prev, minCapRate: parseFloat(e.target.value) }))}
+                  onChange={(e) => setCriteria(prev => ({ ...prev, minCapRate: parseFloat(e.target.value) || 0 }))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -450,7 +734,7 @@ const UnderwritingPlatform = () => {
                 <input
                   type="number"
                   value={criteria.maxYearBuilt}
-                  onChange={(e) => setCriteria(prev => ({ ...prev, maxYearBuilt: parseInt(e.target.value) }))}
+                  onChange={(e) => setCriteria(prev => ({ ...prev, maxYearBuilt: parseInt(e.target.value) || 1900 }))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -461,14 +745,20 @@ const UnderwritingPlatform = () => {
                 <input
                   type="number"
                   value={criteria.targetHoldPeriod}
-                  onChange={(e) => setCriteria(prev => ({ ...prev, targetHoldPeriod: parseInt(e.target.value) }))}
+                  onChange={(e) => setCriteria(prev => ({ ...prev, targetHoldPeriod: parseInt(e.target.value) || 1 }))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
-            <div className="mt-6">
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium">
+            <div className="mt-6 flex flex-col sm:flex-row gap-4">
+              <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
                 Save Settings
+              </button>
+              <button 
+                onClick={() => setCriteria({ minCocReturn: 8, minCapRate: 6, maxYearBuilt: 1990, targetHoldPeriod: 5 })}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors"
+              >
+                Reset to Defaults
               </button>
             </div>
           </div>
