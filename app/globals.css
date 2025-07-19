@@ -2,7 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base styles */
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
 * {
   box-sizing: border-box;
   padding: 0;
@@ -13,6 +18,11 @@ html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-start-rgb));
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
@@ -20,39 +30,40 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+/* Force light mode always */
+html {
+  color-scheme: light !important;
 }
 
-/* Dark mode support */
 @media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+  :root {
+    --foreground-rgb: 0, 0, 0;
+    --background-start-rgb: 249, 250, 251;
+    --background-end-rgb: 255, 255, 255;
+  }
+  
+  body {
+    color: rgb(var(--foreground-rgb)) !important;
+    background: rgb(var(--background-start-rgb)) !important;
   }
 }
 
-/* Custom scrollbar for webkit browsers */
+/* Custom scroll bar */
 ::-webkit-scrollbar {
   width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #f1f5f9;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: #cbd5e1;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: #94a3b8;
 }
 
 /* Focus styles for accessibility */
@@ -64,51 +75,25 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
-/* Custom button animations */
-@keyframes pulse-blue {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
-  }
-  50% {
-    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
-  }
+/* File upload animations */
+.file-upload-hover:hover {
+  border-color: #3b82f6 !important;
+  background-color: #eff6ff !important;
 }
 
-.pulse-blue {
-  animation: pulse-blue 2s infinite;
+.file-upload-success {
+  border-color: #10b981 !important;
+  background-color: #ecfdf5 !important;
 }
 
-/* File upload hover effects */
-.file-upload-area:hover {
-  border-color: #3b82f6;
-  background-color: #eff6ff;
-}
-
-.file-upload-area.active {
-  border-color: #10b981;
-  background-color: #ecfdf5;
-}
-
-/* Loading spinner animation */
+/* Loading animation */
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .animate-spin {
   animation: spin 1s linear infinite;
-}
-
-/* Gradient text effect */
-.gradient-text {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 /* Card hover effects */
@@ -118,51 +103,26 @@ textarea:focus-visible {
 
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
 
-/* Success/Error state colors */
-.success-border {
-  border-color: #10b981;
+/* Button animations */
+.button-hover {
+  transition: all 0.2s ease;
 }
 
-.error-border {
-  border-color: #ef4444;
+.button-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
-.success-bg {
-  background-color: #ecfdf5;
-}
-
-.error-bg {
-  background-color: #fef2f2;
-}
-
-/* Table styles */
-.table-row:hover {
-  background-color: #f9fafb;
-}
-
-/* Responsive table */
-@media (max-width: 768px) {
-  .table-responsive {
+/* Responsive utilities */
+@media (max-width: 640px) {
+  .responsive-text {
     font-size: 0.875rem;
   }
   
-  .table-responsive th,
-  .table-responsive td {
-    padding: 0.5rem 0.25rem;
-  }
-}
-
-/* Print styles */
-@media print {
-  .no-print {
-    display: none !important;
-  }
-  
-  body {
-    background: white !important;
-    color: black !important;
+  .responsive-padding {
+    padding: 1rem;
   }
 }
